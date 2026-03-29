@@ -298,10 +298,9 @@ jobs:
             # 清理内核 Kbuild 中的旧版本定义
             # 删除版本函数
             #sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
-            # 删除 API 版本定义
-            #sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
-            # 删除完整版本定义
-            #sed -i '/KSU_VERSION_FULL :=/d' kernel/Kbuild
+            # 使用本地版本
+            sed -i '/KSU_GITHUB_VERSION :=/d' kernel/Kbuild
+            sed -i '/KSU_GITHUB_VERSION_COMMIT :=/d' kernel/Kbuild
             # 在 REPO_OWNER 行后插入新版本定义
             #awk -v def="$VERSION_DEFINITIONS" '
               # 当找到 REPO_OWNER 行时，插入版本定义并设置标记
