@@ -5,7 +5,7 @@ env:
   ANDROID_VERSION: 'android16'
   KERNEL_VERSION: '6.12'
   SUB_VERSION: '23_gki'
-  KERNEL_NAME: 'android16-5-ga8f88ad96df3-ab13929693-4k'
+  KERNEL_NAME: 'android16-5-g6928909e3148-abogki444322847-4k'
   CCACHE_KEY: ccache-neov5-gki-6.12.23
 
 on:
@@ -15,7 +15,7 @@ on:
         description: 'KernelSU分支(ReSukiSU/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认ReSukiSU)'
         required: true
         type: choice
-        default: 'resukisu'
+        default: 'sukisu'
         options:
           - 'resukisu'
           - 'sukisu'
@@ -64,7 +64,7 @@ on:
         description: '是否启用ADIOS IO调度器支持(提升IO读写性能)'
         required: true
         type: boolean
-        default: 'true'
+        default: 'false'
       rekernel_enable:
         description: '是否启用Re-Kernel支持(与Freezer/NoActive等软件配合, 提升应用冻结能力)'
         required: true
@@ -90,6 +90,23 @@ on:
         required: false
         type: string
         default: ''
+      custom_kernel_time:
+        description: "自定义构建时间 (留空默认官核时间)"
+        required: false
+        default: ''
+      sukisu_branch:
+        description: "⚙️ SukiSU分支或版本 (默认builtin)"
+        required: false
+        default: 'builtin'
+      susfs_branch:
+        description: "⚙️ SUSFS分支或版本 (默认oki-android16-6.12)"
+        required: false
+        default: 'oki-android16-6.12'
+      enable_unicode_bypass_fix:
+        description: "应用零宽字符漏洞修复补丁"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   build:
@@ -108,7 +125,16 @@ jobs:
           cd kernel_workspace
           echo "当前仓库：$GITHUB_REPOSITORY"
           echo "当前分支：$GITHUB_REF_NAME"
-          
+          echo "使用SukiSU分支: ${{ github.event.inputs.sukisu_branch }}"
+          echo "SUKISU_BRANCH=${{ github.event.inputs.sukisu_branch }}" >> $GITHUB_ENV
+          echo "使用SUSFS分支: ${{ github.event.inputs.susfs_branch }}"
+          echo "SUSFS_BRANCH=${{ github.event.inputs.susfs_branch }}" >> $GITHUB_ENV
+          if [ -z "${{ github.event.inputs.custom_kernel_time }}" ]; then
+            echo 'KERNEL_TIME=Fri Sep 12 04:57:41 UTC 2025' >> $GITHUB_ENV
+          else
+            echo "使用自定义构建时间: ${{ github.event.inputs.custom_kernel_time }}"
+            echo "KERNEL_TIME=${{ github.event.inputs.custom_kernel_time }}" >> $GITHUB_ENV
+          fi
           sudo apt-mark hold firefox &&
           sudo apt-mark hold libc-bin &&
           sudo apt purge man-db &&
@@ -242,7 +268,7 @@ jobs:
           cd kernel_workspace
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             echo "正在配置SukiSU Ultra..."
-            curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s builtin
+            curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s "$SUKISU_BRANCH"
             cd ./KernelSU
             # 获取当前 Git 提交的短哈希 (8位)
             GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
@@ -268,23 +294,23 @@ jobs:
             # 创建版本定义模板&版本格式函数: 使用获取的提交哈希和固定后缀
             # KSU_VERSION_API: API 版本定义
             # KSU_VERSION_FULL: 完整版本定义
-            VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'@cctv18\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'@cctv18'
+            #VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'@cctv18\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'@cctv18'
             # 清理内核 Kbuild 中的旧版本定义
             # 删除版本函数
-            sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
+            #sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
             # 删除 API 版本定义
-            sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
+            #sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
             # 删除完整版本定义
-            sed -i '/KSU_VERSION_FULL :=/d' kernel/Kbuild
+            #sed -i '/KSU_VERSION_FULL :=/d' kernel/Kbuild
             # 在 REPO_OWNER 行后插入新版本定义
-            awk -v def="$VERSION_DEFINITIONS" '
+            #awk -v def="$VERSION_DEFINITIONS" '
               # 当找到 REPO_OWNER 行时，插入版本定义并设置标记
-              /REPO_OWNER :=/ {print; print def; inserted=1; next}
+              #/REPO_OWNER :=/ {print; print def; inserted=1; next}
               # 打印所有行
-              1
+              #1
               # 如果未找到插入点，在文件末尾追加
-              END {if (!inserted) print def}
-            ' kernel/Kbuild > kernel/Kbuild.tmp && mv kernel/Kbuild.tmp kernel/Kbuild
+              #END {if (!inserted) print def}
+            #' kernel/Kbuild > kernel/Kbuild.tmp && mv kernel/Kbuild.tmp kernel/Kbuild
 
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
@@ -293,13 +319,13 @@ jobs:
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
 
             # 验证修改结果
-            grep -A10 "REPO_OWNER" kernel/Kbuild  # 检查插入点后的内容
-            grep "KSU_VERSION_FULL" kernel/Kbuild # 确认版本定义存在
-            echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}@cctv18"
+            #grep -A10 "REPO_OWNER" kernel/Kbuild  # 检查插入点后的内容
+            #grep "KSU_VERSION_FULL" kernel/Kbuild # 确认版本定义存在
+            #echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}@cctv18"
           elif [[ ${{ github.event.inputs.ksu_type }} == "resukisu" ]]; then
             echo "正在配置ReSukiSU..."
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/refs/heads/main/kernel/setup.sh" | bash -s main
-            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
+            #echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
@@ -339,7 +365,10 @@ jobs:
           cd kernel_workspace
           if [[ ${{ github.event.inputs.ksu_type }} != "none" ]]; then
             echo "正在添加susfs补丁..."
-            git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+            git clone https://github.com/cctv18/susfs4oki.git susfs4ksu
+            cd ./susfs4ksu
+            git checkout "$SUSFS_BRANCH"
+            cd ..
             cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
             cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
             cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
@@ -375,6 +404,16 @@ jobs:
           cd kernel_workspace/common
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/lz4kd.patch
           patch -p1 -F 3 < lz4kd.patch || true
+
+      - name: ⚙️ apply unicode_bypass_fix Patch (应用零宽字符漏洞修复补丁)
+        if: ${{inputs.enable_unicode_bypass_fix}}
+        run: |
+          echo "正在添加零宽字符漏洞修复补丁…"
+          cd kernel_workspace
+          git clone https://github.com/ITxiao6666/Unicode_bypass_Fix.git
+          cp ./Unicode_bypass_Fix/unicode-bypass_fix_5.10-6.12通用.patch ./common/
+          cd ./common
+          patch -p1 < unicode-bypass_fix_5.10-6.12通用.patch || true
           
       - name: 添加SUSFS 配置项
         if: inputs.susfs_enable
@@ -550,6 +589,8 @@ jobs:
           fi
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
           echo "CONFIG_LOCALVERSION_AUTO=n" >> ./common/arch/arm64/configs/gki_defconfig
+          # 打印配置用于debug
+          cat ./common/arch/arm64/configs/gki_defconfig
            
       - name: 构建内核
         run: |
@@ -653,6 +694,8 @@ jobs:
           export OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump OBJSIZE=llvm-size STRIP=llvm-strip
           # 5. 编译前运行官方环境配置脚本
           source "./_setup_env.sh" 2>/dev/null || true
+
+          export KBUILD_BUILD_TIMESTAMP="${KERNEL_TIME}"
           
           #在构建内核的同时清除不必要的.NET, Android NDK, Haskell, CodeQL运行库，清理空间且不阻塞后续步骤运行
           sudo rm -rf /usr/share/dotnet &
