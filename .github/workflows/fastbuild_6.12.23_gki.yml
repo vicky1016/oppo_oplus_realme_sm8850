@@ -321,9 +321,9 @@ jobs:
               KSU_VERSION=${{ github.event.inputs.sukisu_build }}
               OLD_BUILD_EXP='\$(shell\sexpr\s40000\s+\s\$(KSU_LOCAL_VERSION)\s\-\s2815)'
               sed -i "s/$OLD_BUILD_EXP/$KSU_VERSION/g" ./KernelSU/kernel/Kbuild
-            else
+            elif
               KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
-            fi.
+            fi
             # 存储版本号到 GitHub 环境变量
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
