@@ -282,7 +282,7 @@ jobs:
             
             # 由于最新SukiSU版本取消Kbuild文件，此处需要进行判断
             KBUILD_FILE='kernel/Kbuild'
-            if [ ! -f "$KBUILD_FILE" ] then
+            if [ ! -f "$KBUILD_FILE" ]; then
               KBUILD_FILE='kernel/Makefile'
             fi
             
